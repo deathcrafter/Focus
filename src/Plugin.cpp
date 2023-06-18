@@ -295,3 +295,10 @@ PLUGIN_EXPORT LPCWSTR CurrentPath(void* data, const int argc, const WCHAR** argv
 	std::unique_lock<std::mutex> lock(m_current_window_mutex);
 	return m_current_window.path.c_str();
 }
+
+PLUGIN_EXPORT LPCWSTR CurrentWindowClass(void* data, const int argc, const WCHAR** argv)
+{
+	Measure* measure = (Measure*)data;
+	std::unique_lock<std::mutex> lock(m_current_window_mutex);
+	return m_current_window.windowClass.c_str();
+}
