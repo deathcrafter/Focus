@@ -18,6 +18,7 @@ static struct CurrentWindow {
 	std::wstring title = L"";
 	std::wstring baseName = L"";
 	std::wstring path = L"";
+	std::wstring windowClass = L"";
 } m_current_window;
 
 /*
@@ -50,6 +51,12 @@ void WinEventProc(
 	DWORD dwmsEventTime
 ) {
 	if (hWinEventHook != m_hook || event != EVENT_SYSTEM_FOREGROUND) return;
+	std::wstring windowClass;
+	windowClass.resize(MAX_CLASS_NAME);
+	GetClassName(hwnd, &windowClass[0], MAX_CLASS_NAME);
+	std::wstring windowTitle;
+	windowTitle.resize(MAX_PATH);
+	GetWindowText(hwnd, &windowTitle[0], MAX_PATH);
 	{
 		std::unique_lock<std::mutex> lock(m_current_window_mutex);
 
@@ -69,30 +76,45 @@ void WinEventProc(
 			CloseHandle(hProc);
 		}
 
-		m_current_window.title.resize(MAX_PATH);
-		GetWindowText(hwnd, &m_current_window.title[0], MAX_PATH);
+		m_current_window.title = windowTitle;
+		m_current_window.windowClass = windowClass;
 	}
 	std::unique_lock<std::mutex> lock(m_measures_mutex);
 	for (auto measure : m_measures) {
 		std::unique_lock<std::mutex> lock(measure->mutex);
-		if (measure->isFocused && hwnd != measure->hWnd) {
+
+		if (!measure->onForegroundChangeAction.empty())
 			SendNotifyMessage(
 				measure->rmWnd, WM_RAINMETER_EXECUTE, (WPARAM)measure->skin,
-				(LPARAM)RmReplaceVariables(measure->rm, measure->onUnfocusAction.c_str())
+				(LPARAM)RmReplaceVariables(measure->rm, measure->onForegroundChangeAction.c_str())
 			);
+
+		if (!measure->enableFocusActions) continue;
+
+		bool isConfigInGroup = false;
+
+		if (NULL == _wcsicmp(windowClass.c_str(), L"RainmeterMeterWindow")) {
+			if (windowTitle.find(measure->configGroup) != windowTitle.npos) {
+				isConfigInGroup = true;
+			}
+		}
+
+		if (measure->isFocused && !isConfigInGroup) {
+			if (!measure->onUnfocusAction.empty())
+				SendNotifyMessage(
+					measure->rmWnd, WM_RAINMETER_EXECUTE, (WPARAM)measure->skin,
+					(LPARAM)RmReplaceVariables(measure->rm, measure->onUnfocusAction.c_str())
+				);
 			measure->isFocused = false;
 		}
-		else if (!measure->isFocused && hwnd == measure->hWnd) {
-			SendNotifyMessage(
-				measure->rmWnd, WM_RAINMETER_EXECUTE, (WPARAM)measure->skin,
-				(LPARAM)RmReplaceVariables(measure->rm, measure->onFocusAction.c_str())
-			);
-			measure->isFocused = false;
+		else if (!measure->isFocused && isConfigInGroup) {
+			if (!measure->onFocusAction.empty())
+				SendNotifyMessage(
+					measure->rmWnd, WM_RAINMETER_EXECUTE, (WPARAM)measure->skin,
+					(LPARAM)RmReplaceVariables(measure->rm, measure->onFocusAction.c_str())
+				);
+			measure->isFocused = true;
 		}
-		SendNotifyMessage(
-			measure->rmWnd, WM_RAINMETER_EXECUTE, (WPARAM)measure->skin,
-			(LPARAM)RmReplaceVariables(measure->rm, measure->onForegroundChangeAction.c_str())
-		);
 	}
 }
 

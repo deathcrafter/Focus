@@ -15,8 +15,12 @@ public:
 	HWND hWnd;
 	static const HWND rmWnd;
 
+	std::wstring configGroup;
+
+	bool enableFocusActions = false;
 	std::wstring onFocusAction;
 	std::wstring onUnfocusAction;
+
 	std::wstring onForegroundChangeAction;
 
 	bool isFocused;
