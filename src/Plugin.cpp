@@ -2,6 +2,7 @@
 #include "Measure.h"
 #include <psapi.h>
 #include <vector>
+#include <regex>
 
 // Copied from Rainmeter.h
 #define WM_RAINMETER_EXECUTE WM_APP + 2
@@ -53,12 +54,15 @@ void WinEventProc(
 	if (hWinEventHook != m_hook || event != EVENT_SYSTEM_FOREGROUND) return;
 	std::wstring windowClass;
 	windowClass.resize(MAX_CLASS_NAME);
-	GetClassName(hwnd, &windowClass[0], MAX_CLASS_NAME);
 	std::wstring windowTitle;
 	windowTitle.resize(MAX_PATH);
-	GetWindowText(hwnd, &windowTitle[0], MAX_PATH);
 	{
 		std::unique_lock<std::mutex> lock(m_current_window_mutex);
+		
+		if (m_current_window.currentWindow == hwnd) return;
+
+		GetClassName(hwnd, &windowClass[0], MAX_CLASS_NAME);
+		GetWindowText(hwnd, &windowTitle[0], MAX_PATH);
 
 		m_current_window.currentWindow = hwnd;
 
@@ -94,8 +98,13 @@ void WinEventProc(
 		bool isConfigInGroup = false;
 
 		if (NULL == _wcsicmp(windowClass.c_str(), L"RainmeterMeterWindow")) {
-			if (windowTitle.find(measure->configGroup) != windowTitle.npos) {
-				isConfigInGroup = true;
+			using namespace std::regex_constants;
+			for (auto configGroup : measure->configGroups) {
+				std::wstring skinTitle = windowTitle.substr(measure->skinsPathLength + 1); // remove the skins path from the title
+				if (std::regex_search(skinTitle, std::wregex(configGroup, ECMAScript | icase))) {
+					isConfigInGroup = true;
+					break;
+				}
 			}
 		}
 
@@ -179,6 +188,13 @@ PLUGIN_EXPORT void Reload(void* data, void* rm, double* maxValue)
 	measure->Reload();
 }
 
+DWORD WINAPI ThreadProc(
+	_In_ LPVOID lpParameter
+) {
+	WinEventProc(m_hook, EVENT_SYSTEM_FOREGROUND, GetForegroundWindow(), NULL, NULL, NULL, NULL);
+	return NULL;
+}
+
 /*
 * Called at every measure update
 * Update your values here
@@ -186,6 +202,22 @@ PLUGIN_EXPORT void Reload(void* data, void* rm, double* maxValue)
 PLUGIN_EXPORT double Update(void* data)
 {
 	Measure* measure = (Measure*)data;
+	bool isUpdater = false;
+	{
+		std::unique_lock<std::mutex> lock(measure->mutex);
+		isUpdater = measure->isUpdater;
+	}
+	if (isUpdater) {
+		HWND currentWindow = NULL;
+		{
+			std::unique_lock<std::mutex> lock(m_current_window_mutex);
+			currentWindow = m_current_window.currentWindow;
+		}
+		if (GetForegroundWindow() != currentWindow) {
+			HANDLE handle = CreateThread(NULL, NULL, ThreadProc, NULL, NULL, NULL);
+			if (handle) CloseHandle(handle);
+		}
+	}
 	return 0.0;
 }
 

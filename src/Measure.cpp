@@ -3,14 +3,44 @@
 
 const HWND Measure::rmWnd = FindWindow(RAINMETER_CLASS_NAME, RAINMETER_WINDOW_NAME);
 
+std::vector<std::wstring> SplitString(const std::wstring& s, const std::wstring& delimiter) {
+	std::vector<std::wstring> tokens;
+
+	auto trim = [](std::wstring& s) {
+		s = s.substr(s.find_first_not_of(L" "));
+		s = s.substr(0, s.find_last_not_of(L" ") + 1);
+	};
+
+	auto add_token = [&tokens, &trim](std::wstring& token) {
+		trim(token);
+		if (!token.empty()) tokens.push_back(token);
+	};
+
+	size_t last = 0;
+	size_t next = 0;
+	while ((next = s.find(delimiter, last)) != std::wstring::npos) {
+		std::wstring token = s.substr(last, next - last);
+		add_token(token);
+		last = next + 1;
+	}
+	if (last < s.size())
+	{
+		std::wstring token = s.substr(last);
+		add_token(token);
+	}
+
+	return tokens;
+}
+
 Measure::Measure(void* _rm) :
 	rm(_rm),
 	skin(RmGetSkin(_rm)),
 	hWnd(RmGetSkinWindow(_rm))
 {
-	configGroup.append(RmReadString(rm, L"RootConfig", L""));
+	configGroup.append(RmReadString(rm, L"ConfigGroups", L""));
 	enableFocusActions = !configGroup.empty() && configGroup.find_first_not_of(L" ") != configGroup.npos;
-	configGroup = RmReplaceVariables(rm, L"#SKINSPATH#") + configGroup + L"\\";
+	configGroups = SplitString(configGroup, L"|");
+	skinsPathLength = wcslen(RmReplaceVariables(rm, L"#SKINSPATH#"));
 
 	HWND hwnd = GetForegroundWindow();
 	std::wstring windowClass;
@@ -24,6 +54,8 @@ Measure::Measure(void* _rm) :
 			isFocused = true;
 		}
 	}
+
+	isUpdater = NULL != RmReadInt(rm, L"Updater", 0);
 }
 
 void Measure::Reload() {
