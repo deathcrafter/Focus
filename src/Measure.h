@@ -1,8 +1,6 @@
 #pragma once
 #include <mutex>
-#include <string>
 #include <map>
-#include <vector>
 
 // copied from rainmeter library
 #define RAINMETER_CLASS_NAME				L"DummyRainWClass"

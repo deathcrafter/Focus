@@ -1,3 +1,6 @@
 #pragma once
 #include <Windows.h>
-#include "../rmapi/RainmeterAPI.h" 
+#include <regex>
+#include <string>
+#include <vector>
+#include "../rmapi/RainmeterAPI.h"

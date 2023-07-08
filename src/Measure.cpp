@@ -50,12 +50,17 @@ Measure::Measure(void* _rm) :
 	windowTitle.resize(MAX_PATH);
 
 	if (NULL == _wcsicmp(windowClass.c_str(), L"RainmeterMeterWindow")) {
-		if (windowTitle.find(configGroup) != windowTitle.npos) {
-			isFocused = true;
+		using namespace std::regex_constants;
+		for (auto configGroup : configGroups) {
+			std::wstring skinTitle = windowTitle.substr(skinsPathLength); // remove the skins path from the title
+			if (std::regex_search(skinTitle, std::wregex(configGroup, ECMAScript | icase))) {
+				isFocused = true;
+				break;
+			}
 		}
 	}
 
-	isUpdater = NULL != RmReadInt(rm, L"Updater", 0);
+	// isUpdater = NULL != RmReadInt(rm, L"Updater", 0);
 }
 
 void Measure::Reload() {

@@ -100,7 +100,7 @@ void WinEventProc(
 		if (NULL == _wcsicmp(windowClass.c_str(), L"RainmeterMeterWindow")) {
 			using namespace std::regex_constants;
 			for (auto configGroup : measure->configGroups) {
-				std::wstring skinTitle = windowTitle.substr(measure->skinsPathLength + 1); // remove the skins path from the title
+				std::wstring skinTitle = windowTitle.substr(measure->skinsPathLength); // remove the skins path from the title
 				if (std::regex_search(skinTitle, std::wregex(configGroup, ECMAScript | icase))) {
 					isConfigInGroup = true;
 					break;
@@ -201,6 +201,7 @@ DWORD WINAPI ThreadProc(
 */
 PLUGIN_EXPORT double Update(void* data)
 {
+	/*
 	Measure* measure = (Measure*)data;
 	bool isUpdater = false;
 	{
@@ -218,6 +219,7 @@ PLUGIN_EXPORT double Update(void* data)
 			if (handle) CloseHandle(handle);
 		}
 	}
+	*/
 	return 0.0;
 }
 
